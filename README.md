@@ -10,7 +10,7 @@ ASP.NET Core 8 · built for IIS · has a Chinook adapter · runs out of the box 
 ![tests](https://img.shields.io/badge/tests-50%20passing-2d6a4f)
 ![docker](https://img.shields.io/badge/docker-ready-2496ED)
 
-**[▶ Live demo](https://a56e61befadf46.lhr.life)** · [API](#api) · [Run it](#run-it) · [Chinook on Windows + IIS](#real-chinook-on-windows--iis)
+**[▶ Live demo](https://e06892f2939610.lhr.life)** · [API](#api) · [Run it](#run-it) · [Chinook on Windows + IIS](#real-chinook-on-windows--iis)
 
 <img src="docs/board.png" alt="Web board: play against the engine and see depth, nodes, PV and tablebase hits" width="820">
 
@@ -53,7 +53,7 @@ ASP.NET Core 8 · built for IIS · has a Chinook adapter · runs out of the box 
 ### `POST /v1/move/suggest`
 
 ```bash
-curl -s https://a56e61befadf46.lhr.life/v1/move/suggest -H 'content-type: application/json' -d '{
+curl -s https://e06892f2939610.lhr.life/v1/move/suggest -H 'content-type: application/json' -d '{
   "gameId": "g1",
   "state":  { "notation": "PDN", "position": "B:W18,22,25,26,27,29,30:B1,3,6,7,9,10,12" },
   "level":  "strong",
