@@ -219,7 +219,7 @@ async function health(){
   }catch{ $('health').className='bad'; $('health').innerHTML='<b>offline</b>'; }
 }
 health(); setInterval(health, 10000);
-load(START);
+load(new URLSearchParams(location.search).get('pdn') || START);
 </script>
 </body>
 </html>
