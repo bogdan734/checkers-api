@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Checkers Engine Board</title>
+<style>
+  :root{
+    --bg:#f4f1ea; --panel:#fffdf8; --ink:#23201a; --muted:#6f685a; --line:#ddd5c3;
+    --dark:#8a5a3b; --light:#ecd9b8; --sel:#f2c14e; --dest:#4aa66b; --last:#d9b45a;
+    --black:#2a2623; --white:#f7f2e8; --accent:#2d6a4f; --err:#b3261e;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#1b1a17; --panel:#25231f; --ink:#ece6d8; --muted:#a39b89; --line:#3a362e;
+      --dark:#7a4f33; --light:#c9b48c; --white:#f1ead9; --accent:#52b788; --err:#f2877f; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+  header{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line)}
+  h1{font-size:18px;margin:0}
+  #health{font-size:13px;color:var(--muted)} #health b{color:var(--accent)} #health.bad b{color:var(--err)}
+  main{display:grid;grid-template-columns:minmax(300px,640px) minmax(280px,420px);gap:20px;padding:16px;max-width:1120px;margin:0 auto;justify-content:center}
+  @media (max-width:860px){ main{grid-template-columns:1fr} }
+  #board{display:grid;grid-template-columns:repeat(8,1fr);aspect-ratio:1;width:100%;border:3px solid var(--dark);border-radius:6px;overflow:hidden;user-select:none}
+  .sq{position:relative;display:flex;align-items:center;justify-content:center;background:var(--light)}
+  .sq.d{background:var(--dark);cursor:default}
+  .sq .n{position:absolute;left:3px;top:1px;font-size:10px;color:#fff8;pointer-events:none}
+  .sq.last{box-shadow:inset 0 0 0 100px #f2c14e55}
+  .sq.sel{box-shadow:inset 0 0 0 4px var(--sel)}
+  .sq.dest::after{content:"";position:absolute;width:26%;height:26%;border-radius:50%;background:var(--dest);opacity:.85}
+  .sq.movable{cursor:pointer}
+  .pc{width:78%;height:78%;border-radius:50%;box-shadow:0 2px 3px #0006, inset 0 -3px 0 #0003;display:flex;align-items:center;justify-content:center;font-size:clamp(14px,3.6vw,26px);position:relative}
+  .pc.b{background:radial-gradient(circle at 35% 30%,#4a4540,var(--black));border:2px solid #0008;color:#f2c14e}
+  .pc.w{background:radial-gradient(circle at 35% 30%,#fff,var(--white));border:2px solid #b9ad92;color:#a07a14}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px}
+  .card h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 10px}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+  label{font-size:13px;color:var(--muted)}
+  select,button,textarea,input{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:6px 10px}
+  button{cursor:pointer} button:hover{border-color:var(--accent)} button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  textarea{width:100%;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;resize:vertical}
+  #status{font-weight:600;min-height:1.4em} #status.err{color:var(--err)}
+  dl{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:0;font-size:14px} dt{color:var(--muted)} dd{margin:0;font-family:ui-monospace,Menlo,Consolas,monospace;word-break:break-all}
+  #hist{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;max-height:120px;overflow:auto}
+  pre{margin:0;font-size:12px;overflow:auto;max-height:220px}
+  .tb{color:var(--accent);font-weight:700}
+</style>
+</head>
+<body>
+<header>
+  <h1>Checkers — engine board</h1>
+  <div id="health">checking engine…</div>
+</header>
+<main>
+  <section>
+    <div id="board" aria-label="Checkers board"></div>
+    <p id="status"></p>
+  </section>
+  <aside>
+    <div class="card">
+      <h2>Game</h2>
+      <div class="row">
+        <label>You play <select id="side"><option value="B">Black (moves first)</option><option value="W">White</option></select></label>
+        <label>Level <select id="level"><option>weak</option><option selected>medium</option><option>strong</option></select></label>
+      </div>
+      <div class="row">
+        <button class="primary" id="newgame">New game</button>
+        <button id="hint">Engine move</button>
+        <button id="undo">Undo</button>
+        <button id="flip">Flip</button>
+        <button id="auto">Engine vs engine</button>
+      </div>
+      <div id="hist"></div>
+    </div>
+    <div class="card">
+      <h2>Last engine answer</h2>
+      <dl id="info"><dt>—</dt><dd>no request yet</dd></dl>
+      <details style="margin-top:10px"><summary>raw JSON</summary><pre id="raw"></pre></details>
+    </div>
+    <div class="card">
+      <h2>Position (PDN)</h2>
+      <textarea id="pdn" rows="2" spellcheck="false"></textarea>
+      <div class="row" style="margin-top:8px">
+        <button id="load">Load position</button>
+        <span style="color:var(--muted);font-size:12px">e.g. <code>B:WK14:BK1,10</code> (≤3 pieces hits the tablebase)</span>
+      </div>
+    </div>
+  </aside>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const START = "B:W21,22,23,24,25,26,27,28,29,30,31,32:B1,2,3,4,5,6,7,8,9,10,11,12";
+let pos = START, legal = null, history = [], lastMove = [], flipped = false, busy = false, auto = false, selPath = null;
+
+async function api(url, body){
+  const r = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+  const j = await r.json().catch(()=>({}));
+  if(!r.ok){ const e = new Error(j.message || ('HTTP '+r.status)); e.status=r.status; e.code=j.code; throw e; }
+  return j;
+}
+function parse(p){
+  const [turn, w, b] = p.split(':'); const out = {turn, pieces:{}};
+  for(const [s, color] of [[w,'w'],[b,'b']]){
+    for(const t of s.slice(1).split(',').filter(Boolean)){
+      const k = t[0]==='K'; out.pieces[parseInt(k?t.slice(1):t)] = {color, king:k};
+    }
+  }
+  return out;
+}
+function squareAt(r,c){ return ((r+c)%2===1) ? r*4 + (c>>1) + 1 : null; }
+function render(){
+  const st = parse(pos), board = $('board'); board.innerHTML='';
+  const movableFrom = new Set(), dests = new Set();
+  if(legal && !legal.gameOver && humanTurn()){
+    const cands = legal.moves.filter(m => !selPath || selPath.every((s,i)=>m.path[i]===s));
+    cands.forEach(m => { if(!selPath) movableFrom.add(m.from); else if(m.path.length>selPath.length) dests.add(m.path[selPath.length]); });
+  }
+  for(let vr=0; vr<8; vr++) for(let vc=0; vc<8; vc++){
+    const r = flipped ? 7-vr : vr, c = flipped ? 7-vc : vc;
+    const n = squareAt(r,c), el = document.createElement('div');
+    el.className = 'sq' + (n ? ' d' : '');
+    if(n){
+      el.innerHTML = `<span class="n">${n}</span>`;
+      if(lastMove.includes(n)) el.classList.add('last');
+      if(selPath && selPath[selPath.length-1]===n) el.classList.add('sel');
+      if(dests.has(n)) el.classList.add('dest');
+      if(movableFrom.has(n)) el.classList.add('movable');
+      const p = st.pieces[n];
+      if(p){ const d = document.createElement('div'); d.className = 'pc '+p.color; if(p.king) d.textContent='♛'; el.appendChild(d); }
+      el.onclick = () => clickSquare(n);
+    }
+    board.appendChild(el);
+  }
+  $('pdn').value = pos;
+  $('hist').textContent = history.map((h,i)=>(i%2===0?`${i/2+1}. `:'')+h.move).join('  ');
+  $('undo').disabled = busy || history.length===0;
+  $('hint').disabled = busy || !legal || legal.gameOver;
+}
+function humanTurn(){ return !auto && legal && legal.turn[0].toUpperCase() === $('side').value; }
+function status(msg, err){ const s=$('status'); s.textContent=msg||''; s.className = err?'err':''; }
+
+async function refresh(){
+  legal = await api('/v1/position/moves', {position: pos});
+  pos = legal.position; selPath = null; render();
+  if(legal.gameOver){ status(`Game over — ${legal.winner} wins.`); auto=false; $('auto').textContent='Engine vs engine'; return false; }
+  status(`${legal.turn[0].toUpperCase()+legal.turn.slice(1)} to move${humanTurn()?' — your turn':''}.`);
+  return true;
+}
+function clickSquare(n){
+  if(busy || !legal || !humanTurn()) return;
+  const cands = legal.moves.filter(m => !selPath || selPath.every((s,i)=>m.path[i]===s));
+  if(!selPath){
+    if(cands.some(m=>m.from===n)){ selPath=[n]; render(); }
+    return;
+  }
+  const next = cands.filter(m => m.path.length>selPath.length && m.path[selPath.length]===n);
+  if(next.length===0){ selPath = cands.some(m=>m.from===n) && selPath.length===1 ? [n] : null; render(); return; }
+  selPath = [...selPath, n];
+  const done = next.filter(m => m.path.length===selPath.length);
+  if(done.length>=1 && next.every(m=>m.path.length===selPath.length)) return play(done[0]);
+  render();
+}
+async function play(m){
+  history.push({pos, move:m.move}); lastMove=[m.from, m.to]; pos = m.position; selPath=null;
+  if(await refresh()) maybeEngine();
+}
+async function engineMove(){
+  if(busy || !legal || legal.gameOver) return;
+  busy = true; render(); status('Engine thinking…');
+  try{
+    const res = await api('/v1/move/suggest', {gameId:'ui', state:{notation:'PDN', position: pos}, level: $('level').value});
+    showInfo(res);
+    const m = legal.moves.find(x => x.move === res.bestMove);
+    if(!m) throw new Error('Engine move '+res.bestMove+' not in legal list');
+    busy = false; await play(m);
+  }catch(e){ busy=false; status(`${e.status||''} ${e.code||''} ${e.message}`.trim(), true); auto=false; $('auto').textContent='Engine vs engine'; render(); }
+}
+function maybeEngine(){ if(legal && !legal.gameOver && !humanTurn()) setTimeout(engineMove, 150); }
+function showInfo(r){
+  const sc = r.scoreOrWDL;
+  $('info').innerHTML = `
+    <dt>engine</dt><dd>${r.engine}</dd>
+    <dt>bestMove</dt><dd><b>${r.bestMove}</b></dd>
+    <dt>pv</dt><dd>${(r.pv||[]).join(' ')}</dd>
+    <dt>score</dt><dd>${typeof sc==='number' ? (sc>0?'+':'')+sc+' cp' : sc}</dd>
+    <dt>depth / nodes</dt><dd>${r.depth} / ${r.nodes.toLocaleString()}</dd>
+    <dt>tablebase</dt><dd class="${r.info.tablebaseHit?'tb':''}">${r.info.tablebaseHit?'HIT':'no'}</dd>
+    <dt>time</dt><dd>${r.info.timeMs} ms${r.info.cached?' (cached)':''}</dd>
+    <dt>positionKey</dt><dd>${r.positionKey}</dd>`;
+  $('raw').textContent = JSON.stringify(r, null, 2);
+}
+async function load(p){
+  auto=false; $('auto').textContent='Engine vs engine'; history=[]; lastMove=[]; pos=p;
+  try{ await refresh(); maybeEngine(); }
+  catch(e){ status(`${e.status||''} ${e.code||''} ${e.message}`.trim(), true); }
+}
+$('newgame').onclick = () => load(START);
+$('load').onclick = () => load($('pdn').value.trim());
+$('hint').onclick = () => engineMove();
+$('flip').onclick = () => { flipped=!flipped; render(); };
+$('side').onchange = () => { if(legal){ render(); status(''); maybeEngine(); } };
+$('undo').onclick = async () => {
+  if(busy || !history.length) return;
+  const humanSide = $('side').value;
+  do { const h = history.pop(); pos = h.pos; } while(history.length && parse(pos).turn !== humanSide);
+  lastMove=[]; await refresh();
+};
+$('auto').onclick = async () => {
+  auto = !auto; $('auto').textContent = auto ? 'Stop' : 'Engine vs engine';
+  if(auto){ while(auto && legal && !legal.gameOver){ await engineMove(); await new Promise(r=>setTimeout(r,200)); } }
+  else { await refresh(); maybeEngine(); }
+};
+async function health(){
+  try{
+    const r = await fetch('/healthz'), j = await r.json();
+    $('health').className = j.ok ? '' : 'bad';
+    $('health').innerHTML = `engine <b>${j.engine}</b> · workers <b>${j.workers}/${j.configured}</b> · ${j.ok?'ok':'NOT READY'}`;
+  }catch{ $('health').className='bad'; $('health').innerHTML='<b>offline</b>'; }
+}
+health(); setInterval(health, 10000);
+load(START);
+</script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+<Project>
+  <PropertyGroup>
+    <LangVersion>12.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <!-- Target .NET 8 (LTS); allow running on newer installed runtimes (dev boxes with only .NET 9). -->
+    <RollForward>Major</RollForward>
+  </PropertyGroup>
+</Project>
